@@ -1,98 +1,174 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# NestJS Multitenant Architecture POC using Knex + PostgreSQL
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This project demonstrates how to implement a multitenant architecture in NestJS using the **database-per-tenant** strategy with PostgreSQL and Knex.js.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 📦 Tech Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **NestJS** – Backend framework
+- **Knex.js** – SQL query builder & migration tool
+- **PostgreSQL** – Database engine
+- **TypeScript**
 
-## Project setup
+---
 
-```bash
-$ npm install
-```
+## 📌 Features
 
-## Compile and run the project
+- Maintains a central `master` database to track all tenants.
+- Automatically creates a new tenant database when a new organization is registered.
+- Runs initial migrations in the new tenant DB to set up predefined tables (e.g., `users`).
+- Clean modular structure with NestJS best practices.
+
+---
+
+## 🏁 Getting Started
+
+### 1. Clone the Repository
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+git clone <your-repo-url>
+cd nestjs-multitenant-knex
 ```
 
-## Run tests
+### 2. Install Dependencies
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
+### 3. Setup PostgreSQL
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Ensure PostgreSQL is running and create a master database:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+```sql
+CREATE DATABASE master;
+\c master
+
+CREATE TABLE tenants (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR NOT NULL,
+  db_name VARCHAR NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### 4. Configure Knex
+
+Edit `knexfile.ts` with your PostgreSQL credentials:
+
+```typescript
+module.exports = {
+  development: {
+    client: 'pg',
+    connection: {
+      host: 'localhost',
+      user: 'postgres',
+      password: 'your_password',
+      database: 'master',
+    },
+    migrations: {
+      directory: './migrations',
+    },
+  },
+};
+```
+
+### 5. Create Migrations
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npx knex --knexfile knexfile.ts migrate:make create_users_table
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Edit the migration file (example):
 
-## Resources
+```typescript
+export async function up(knex) {
+  await knex.schema.createTable('users', (table) => {
+    table.increments('id').primary();
+    table.string('name');
+    table.string('email').unique();
+  });
+}
 
-Check out a few resources that may come in handy when working with NestJS:
+export async function down(knex) {
+  await knex.schema.dropTable('users');
+}
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+## 🚀 Running the App
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+npm run start:dev
+```
 
-## Stay in touch
+### Register a New Organization
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+curl -X POST http://localhost:3000/org/create \
+     -H "Content-Type: application/json" \
+     -d '{"name": "AcmeCorp"}'
+```
 
-## License
+This will:
+- Insert into `master.tenants` table.
+- Create a new PostgreSQL database called `tenant_acmecorp`.
+- Run migrations (e.g., users table) inside the new DB.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── org/
+│   ├── org.controller.ts
+│   ├── org.module.ts
+│   └── org.service.ts
+├── app.module.ts
+knexfile.ts
+migrations/
+```
+
+---
+
+## 📌 Future Enhancements
+
+- Dynamic DB connection per request
+- Support for per-tenant query routing
+- Tenant-aware authentication
+- Seeders and fixtures for tenant databases
+
+---
+
+## 🧠 Concepts Used
+
+- Dynamic PostgreSQL database creation
+- Multi-DB connection handling in NestJS
+- Knex-based migration on-the-fly
+
+---
+
+## 🧪 Example DBs Created
+
+- `master` → Tracks tenants
+- `tenant_acmecorp` → Has users table
+- `tenant_foobar` → Another tenant DB
+
+---
+
+## 🛡️ License
+
+MIT
+
+---
+
+## 🤝 Author
+
+Built with ❤️ by **Ankush Tyagi** (2025)
+
+---
+
+*Let me know if you'd like this auto-synced into a `README.md` file inside your project or want to add Docker support or GitHub Actions for this.*
